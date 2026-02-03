@@ -1,1 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CIP Bulk Upload</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        label { display: block; margin-top: 10px; }
+        input { width: 300px; padding: 6px; }
+        button { margin-top: 20px; padding: 10px; }
+    </style>
+</head>
+<body>
+
+<h2>CIP Bulk Upload Generator</h2>
+
+<form method="post" action="/generate">
+    <label>Customer Number</label>
+    <input name="customer_number" required>
+
+    <label>Customer Store</label>
+    <input name="customer_store" required>
+
+    <label>From Date</label>
+    <input type="date" name="from_date" required>
+
+    <label>To Date</label>
+    <input type="date" name="to_date" required>
+
+    <button type="submit">Generate CSV</button>
+</form>
+
+</body>
+</html>
 
