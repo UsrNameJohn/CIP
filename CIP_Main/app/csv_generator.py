@@ -4,6 +4,23 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 PERCENTAGE_TYPES = {"DISCOUNT_PERCENTAGE", "MARKUP_PERCENTAGE"}
+CSV_HEADERS = [
+    "customer_number",
+    "customer_store",
+    "salesline",
+    "article_identifier",
+    "article_identifier_type",
+    "cip_store",
+    "exclusive_cip",
+    "all_variants",
+    "all_bundles",
+    "cip_value",
+    "cip_type",
+    "from_date",
+    "to_date",
+    "cip_reason_type",
+    "cip_reason_detail",
+]
 
 
 def _format_decimal(value: str) -> str:
@@ -25,7 +42,10 @@ def _format_cip_value(cip_value: str, cip_type: str) -> str:
     except InvalidOperation:
         return cleaned
     if cip_type in PERCENTAGE_TYPES:
-        dec = dec * 100
+        # Users enter percentages as whole numbers (e.g., 10 for 10%).
+        # Only scale values that look like fractions (e.g., 0.1).
+        if abs(dec) <= Decimal("1"):
+            dec = dec * 100
     return _format_decimal(str(dec))
 
 
@@ -40,6 +60,8 @@ def _format_date(value: str) -> str:
 def generate_csv(header: dict, article_rows: list[dict]) -> str:
     output = io.StringIO()
     writer = csv.writer(output, delimiter=",", lineterminator="\n")
+
+    writer.writerow(CSV_HEADERS)
 
     for row in article_rows:
         writer.writerow([
