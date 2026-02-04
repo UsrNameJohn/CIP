@@ -269,6 +269,12 @@
         <label>Articles and CIP values</label>
         <div class="help">Enter at least one row. Values must be numeric.</div>
         <div class="grid-wrapper">
+            <label>Bulk paste (Article #, CIP value)</label>
+            <div class="help">Paste directly from Excel (two columns) or use: 12345,10 / 12345;10 / 12345<Tab>10</div>
+            <textarea id="bulk-paste" rows="4" style="width:100%;max-width:700px;border:1px dashed #c9b89f;border-radius:8px;padding:8px;background:#fffdf8;"></textarea>
+            <div class="row-actions">
+                <button type="button" id="paste-rows">Paste rows</button>
+            </div>
             <table id="article-table">
                 <thead>
                     <tr>
@@ -369,6 +375,8 @@
     const tableBody = document.querySelector('#article-table tbody');
     const addRowButton = document.getElementById('add-row');
     const clearRowsButton = document.getElementById('clear-rows');
+    const bulkPaste = document.getElementById('bulk-paste');
+    const pasteRowsButton = document.getElementById('paste-rows');
 
     function renumberRows() {
         Array.from(tableBody.querySelectorAll('tr')).forEach((row, index) => {
@@ -408,6 +416,38 @@
     clearRowsButton.addEventListener('click', () => {
         tableBody.innerHTML = '';
         addRow();
+    });
+
+    function parseBulkRows(text) {
+        return text
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(line => {
+                const parts = line.split(/[\t;,]/).map(part => part.trim());
+                return { article: parts[0] || '', value: parts[1] || '' };
+            })
+            .filter(row => row.article || row.value);
+    }
+
+    function applyBulkRows(rows) {
+        if (!rows.length) return;
+        tableBody.innerHTML = '';
+        rows.forEach(row => addRow(row.article, row.value));
+        renumberRows();
+    }
+
+    pasteRowsButton.addEventListener('click', () => {
+        const rows = parseBulkRows(bulkPaste.value);
+        applyBulkRows(rows);
+    });
+
+    tableBody.addEventListener('paste', (event) => {
+        const text = event.clipboardData.getData('text');
+        if (!text || !text.includes('\n')) return;
+        event.preventDefault();
+        const rows = parseBulkRows(text);
+        applyBulkRows(rows);
     });
 
     renumberRows();
