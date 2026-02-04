@@ -4,12 +4,15 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from fastapi.staticfiles import StaticFiles
+import os
 from app.csv_generator import generate_csv
 import io
 
 app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 SALES_LINES = ["FSD", "CC"]
 ARTICLE_IDENTIFIER_TYPES = ["SUBSYS", "MGB"]
@@ -187,7 +190,7 @@ def _build_filename(form: dict, line_count: int) -> str:
     today = date.today().strftime("%Y-%m-%d")
     customer_number = form["customer_number"]
     home_store = form["customer_home_store"]
-    return f"CIP_{customer_number}_store{home_store}_{today}_lines{line_count}.csv"
+    return f"{home_store}-{customer_number}-{today}-{line_count}.csv"
 
 
 @app.get("/", response_class=HTMLResponse)
