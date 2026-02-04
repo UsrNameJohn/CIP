@@ -3,11 +3,13 @@ from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
+from fastapi.staticfiles import StaticFiles
 from app.csv_generator import generate_csv
 import io
 
 app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 SALES_LINES = ["FSD", "CC"]
 ARTICLE_IDENTIFIER_TYPES = ["SUBSYS", "MGB"]
@@ -181,6 +183,13 @@ def _render_form(request: Request, errors: list[str], form: dict, article_rows: 
     )
 
 
+def _build_filename(form: dict, line_count: int) -> str:
+    today = date.today().strftime("%Y-%m-%d")
+    customer_number = form["customer_number"]
+    home_store = form["customer_home_store"]
+    return f"CIP_{customer_number}_store{home_store}_{today}_lines{line_count}.csv"
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return _render_form(request, [], {}, [])
@@ -228,8 +237,9 @@ def generate(
         return _render_form(request, errors, form, article_rows)
 
     csv_content = generate_csv(form, article_rows)
+    filename = _build_filename(form, len(article_rows))
     return StreamingResponse(
         io.StringIO(csv_content),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=CIP_bulk_upload.csv"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

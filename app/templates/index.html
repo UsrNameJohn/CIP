@@ -54,6 +54,10 @@
             font-weight: 600;
             cursor: pointer;
         }
+        .secondary-button {
+            background: #8a5a2c;
+            margin-top: 0;
+        }
         .alert {
             margin-bottom: 16px;
             padding: 12px 14px;
@@ -129,6 +133,15 @@
         .small-input {
             max-width: 240px;
         }
+        .download-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .download-row a {
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
@@ -147,6 +160,13 @@
             </ul>
         </div>
     {% endif %}
+
+    <div class="download-row">
+        <span class="help">Example CSV file:</span>
+        <a href="/static/Testtttttttt.csv" download>
+            <button type="button" class="secondary-button">Download example CSV</button>
+        </a>
+    </div>
 
     <form method="post" action="/generate">
         <label>Customer home store</label>
