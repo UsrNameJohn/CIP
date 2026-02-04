@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CIP Bulk Upload</title>
+    <style>
+        :root {
+            color-scheme: light;
+        }
+        body {
+            font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+            margin: 40px;
+            background: #f5f2eb;
+            color: #1e1e1e;
+        }
+        h2 {
+            margin-bottom: 8px;
+        }
+        .sub {
+            color: #5a4b3b;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: #fffaf2;
+            border: 1px solid #e2d6c3;
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 980px;
+        }
+        label {
+            display: block;
+            margin-top: 14px;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            max-width: 480px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #c9b89f;
+            background: #fffdf8;
+        }
+        .help {
+            font-size: 12px;
+            color: #6b5b4a;
+            margin-top: 4px;
+        }
+        button {
+            margin-top: 22px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: none;
+            background: #5b3a1d;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .alert {
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            border-radius: 10px;
+        }
+        .alert.error {
+            background: #ffe5e0;
+            border: 1px solid #e9a8a0;
+            color: #7a1f17;
+        }
+        .stores-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 8px 16px;
+            margin-top: 8px;
+            padding: 12px;
+            border: 1px dashed #c9b89f;
+            border-radius: 10px;
+            background: #fffdf7;
+            max-width: 700px;
+        }
+        .store-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .store-item.disabled {
+            opacity: 0.45;
+        }
+        .store-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .store-actions button {
+            margin-top: 0;
+            background: #a06b3c;
+        }
+        .store-output {
+            margin-top: 10px;
+        }
+        .grid-wrapper {
+            margin-top: 12px;
+            border: 1px solid #d7c7b0;
+            border-radius: 10px;
+            padding: 12px;
+            background: #fffdf7;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            border-bottom: 1px solid #eadfce;
+            text-align: left;
+        }
+        th {
+            font-size: 13px;
+            color: #5a4b3b;
+        }
+        .row-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .row-actions button {
+            margin-top: 0;
+            background: #7a4f2a;
+        }
+        .small-input {
+            max-width: 240px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>CIP Bulk Upload Generator</h2>
+<div class="sub">Steps 1-4: header, store selection, article grid, CSV export.</div>
+
+<div class="card">
+    {% if errors %}
+        <div class="alert error">
+            <strong>Please fix the following:</strong>
+            <ul>
+                {% for error in errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="post" action="/generate">
+        <label>Customer home store</label>
+        <select name="customer_home_store" required>
+            <option value="">Select store</option>
+            {% for store in home_stores %}
+                <option value="{{ store }}" {% if form.get('customer_home_store') == store %}selected{% endif %}>{{ store }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Customer number</label>
+        <input name="customer_number" inputmode="numeric" pattern="\d{1,6}" maxlength="6" value="{{ form.get('customer_number','') }}" required>
+        <div class="help">Max 6 digits</div>
+
+        <label>Salesline</label>
+        <select name="salesline" id="salesline" required>
+            <option value="">Select salesline</option>
+            {% for item in sales_lines %}
+                <option value="{{ item }}" {% if form.get('salesline') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Article identifier type</label>
+        <select name="article_identifier_type" required>
+            <option value="">Select identifier type</option>
+            {% for item in article_identifier_types %}
+                <option value="{{ item }}" {% if form.get('article_identifier_type') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label>CIP store(s)</label>
+        <div class="help">Pick one or more stores for the selected salesline.</div>
+        <div class="store-actions">
+            <button type="button" data-action="select-all-cc">Select all C&C stores</button>
+            <button type="button" data-action="select-all-fsd">Select all FSD stores</button>
+            <button type="button" data-action="clear-all">Clear all</button>
+        </div>
+        <div class="stores-grid">
+            {% for store in stores %}
+            <label class="store-item" data-store-wrapper>
+                <input type="checkbox" class="store-checkbox" data-store="{{ store.number }}" data-groups="{{ store.groups | join(',') }}" {% if form.get('cip_stores','').split('|') and store.number in form.get('cip_stores','').split('|') %}checked{% endif %}>
+                <span>{{ store.name }} ({{ store.number }})</span>
+            </label>
+            {% endfor %}
+        </div>
+        <div class="store-output">
+            <input name="cip_stores" id="cip_stores" placeholder="Auto-generated" value="{{ form.get('cip_stores','') }}" readonly required>
+        </div>
+
+        <label>Exclusive CIP</label>
+        <select name="exclusive_cip" required>
+            <option value="">Select</option>
+            {% for item in boolean_choices %}
+                <option value="{{ item }}" {% if form.get('exclusive_cip') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label>All variants</label>
+        <select name="all_variants" required>
+            <option value="">Select</option>
+            {% for item in boolean_choices %}
+                <option value="{{ item }}" {% if form.get('all_variants') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label>All bundles</label>
+        <select name="all_bundles" required>
+            <option value="">Select</option>
+            {% for item in boolean_choices %}
+                <option value="{{ item }}" {% if form.get('all_bundles') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label>CIP type</label>
+        <select name="cip_type" required>
+            <option value="">Select CIP type</option>
+            {% for item in cip_types %}
+                <option value="{{ item }}" {% if form.get('cip_type') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label>From date</label>
+        <input type="date" name="from_date" value="{{ form.get('from_date','') }}" required>
+
+        <label>To date</label>
+        <input type="date" name="to_date" value="{{ form.get('to_date','') }}" required>
+
+        <label>Reason</label>
+        <select name="cip_reason_type" required>
+            <option value="">Select reason</option>
+            {% for item in cip_reason_types %}
+                <option value="{{ item }}" {% if form.get('cip_reason_type') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Reason detail</label>
+        <input name="cip_reason_detail" value="{{ form.get('cip_reason_detail','') }}">
+        <div class="help">Required only when Reason is OTHER_REASON</div>
+
+        <label>Articles and CIP values</label>
+        <div class="help">Enter at least one row. Values must be numeric.</div>
+        <div class="grid-wrapper">
+            <table id="article-table">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        <th>Article #</th>
+                        <th>CIP value</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if article_rows %}
+                        {% for row in article_rows %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><input class="small-input" name="article_number" value="{{ row.article_number }}" required></td>
+                            <td><input class="small-input" name="cip_value" value="{{ row.cip_value }}" required></td>
+                            <td><button type="button" class="remove-row">Remove</button></td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td>1</td>
+                            <td><input class="small-input" name="article_number" required></td>
+                            <td><input class="small-input" name="cip_value" required></td>
+                            <td><button type="button" class="remove-row">Remove</button></td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+            <div class="row-actions">
+                <button type="button" id="add-row">Add row</button>
+                <button type="button" id="clear-rows">Clear rows</button>
+            </div>
+        </div>
+
+        <button type="submit">Generate CSV</button>
+    </form>
+</div>
+
+<script>
+    const checkboxes = Array.from(document.querySelectorAll('.store-checkbox'));
+    const output = document.getElementById('cip_stores');
+    const saleslineSelect = document.getElementById('salesline');
+
+    function updateOutput() {
+        const selected = checkboxes
+            .filter(cb => cb.checked)
+            .map(cb => cb.dataset.store);
+        output.value = selected.join('|');
+    }
+
+    function updateStoreAvailability() {
+        const salesline = saleslineSelect.value;
+        checkboxes.forEach(cb => {
+            const groups = cb.dataset.groups.split(',');
+            const isAllowed = salesline ? groups.includes(salesline.toLowerCase()) : true;
+            cb.disabled = !isAllowed;
+            const wrapper = cb.closest('[data-store-wrapper]');
+            if (!isAllowed) {
+                cb.checked = false;
+                wrapper.classList.add('disabled');
+            } else {
+                wrapper.classList.remove('disabled');
+            }
+        });
+        updateOutput();
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateOutput));
+
+    document.querySelector('[data-action="select-all-cc"]').addEventListener('click', () => {
+        checkboxes.forEach(cb => {
+            if (cb.dataset.groups.includes('cc') && !cb.disabled) {
+                cb.checked = true;
+            }
+        });
+        updateOutput();
+    });
+
+    document.querySelector('[data-action="select-all-fsd"]').addEventListener('click', () => {
+        checkboxes.forEach(cb => {
+            if (cb.dataset.groups.includes('fsd') && !cb.disabled) {
+                cb.checked = true;
+            }
+        });
+        updateOutput();
+    });
+
+    document.querySelector('[data-action="clear-all"]').addEventListener('click', () => {
+        checkboxes.forEach(cb => cb.checked = false);
+        updateOutput();
+    });
+
+    saleslineSelect.addEventListener('change', updateStoreAvailability);
+
+    updateStoreAvailability();
+
+    const tableBody = document.querySelector('#article-table tbody');
+    const addRowButton = document.getElementById('add-row');
+    const clearRowsButton = document.getElementById('clear-rows');
+
+    function renumberRows() {
+        Array.from(tableBody.querySelectorAll('tr')).forEach((row, index) => {
+            row.querySelector('td').textContent = index + 1;
+        });
+    }
+
+    function addRow(articleValue = '', cipValue = '') {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td></td>
+            <td><input class="small-input" name="article_number" required></td>
+            <td><input class="small-input" name="cip_value" required></td>
+            <td><button type="button" class="remove-row">Remove</button></td>
+        `;
+        const inputs = row.querySelectorAll('input');
+        inputs[0].value = articleValue;
+        inputs[1].value = cipValue;
+        tableBody.appendChild(row);
+        renumberRows();
+    }
+
+    tableBody.addEventListener('click', (event) => {
+        if (event.target.classList.contains('remove-row')) {
+            const rows = tableBody.querySelectorAll('tr');
+            if (rows.length > 1) {
+                event.target.closest('tr').remove();
+                renumberRows();
+            } else {
+                rows[0].querySelectorAll('input').forEach(input => input.value = '');
+            }
+        }
+    });
+
+    addRowButton.addEventListener('click', () => addRow());
+
+    clearRowsButton.addEventListener('click', () => {
+        tableBody.innerHTML = '';
+        addRow();
+    });
+
+    renumberRows();
+</script>
+
+</body>
+</html>
