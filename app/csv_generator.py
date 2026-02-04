@@ -42,7 +42,10 @@ def _format_cip_value(cip_value: str, cip_type: str) -> str:
     except InvalidOperation:
         return cleaned
     if cip_type in PERCENTAGE_TYPES:
-        dec = dec * 100
+        # Users enter percentages as whole numbers (e.g., 10 for 10%).
+        # Only scale values that look like fractions (e.g., 0.1).
+        if abs(dec) <= Decimal("1"):
+            dec = dec * 100
     return _format_decimal(str(dec))
 
 
