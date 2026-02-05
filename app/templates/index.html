@@ -610,6 +610,8 @@
     const clearRowsButton = document.getElementById('clear-rows');
     const bulkPaste = document.getElementById('bulk-paste');
     const pasteRowsButton = document.getElementById('paste-rows');
+    const allVariantsSelect = document.querySelector('select[name="all_variants"]');
+    const allBundlesSelect = document.querySelector('select[name="all_bundles"]');
 
     function renumberRows() {
         Array.from(tableBody.querySelectorAll('tr')).forEach((row, index) => {
@@ -695,6 +697,24 @@
         document.body.classList.toggle('theme-dark');
         localStorage.setItem('cip-theme', document.body.classList.contains('theme-dark') ? 'dark' : 'light');
     });
+</script>
+<script>
+    function syncCcFlags() {
+        if (saleslineSelect.value === 'CC') {
+            allVariantsSelect.value = 'FALSE';
+            allBundlesSelect.value = 'FALSE';
+            allVariantsSelect.disabled = true;
+            allBundlesSelect.disabled = true;
+        } else {
+            allVariantsSelect.disabled = false;
+            allBundlesSelect.disabled = false;
+            allVariantsSelect.value = '';
+            allBundlesSelect.value = '';
+        }
+    }
+
+    saleslineSelect.addEventListener('change', syncCcFlags);
+    syncCcFlags();
 </script>
 
 </body>

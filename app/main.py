@@ -123,6 +123,12 @@ def _validate_form(data: dict) -> list[str]:
         if value not in BOOLEAN_CHOICES:
             errors.append(f"{label} must be TRUE or FALSE.")
 
+    if salesline == "CC":
+        if data.get("all_variants", "").strip() != "FALSE":
+            errors.append("All variants must be FALSE for CC.")
+        if data.get("all_bundles", "").strip() != "FALSE":
+            errors.append("All bundles must be FALSE for CC.")
+
     cip_type = data.get("cip_type", "").strip()
     if cip_type not in CIP_TYPES:
         errors.append("CIP type is invalid.")
