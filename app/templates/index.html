@@ -148,7 +148,7 @@
         }
         .stores-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(2, minmax(240px, 1fr));
             gap: 8px 16px;
             margin-top: 8px;
             padding: 12px;
@@ -157,11 +157,39 @@
             background: #fffdf8;
             max-width: 700px;
         }
+        body.theme-dark .stores-grid {
+            background: #1f1913;
+            border-color: #3a3126;
+        }
         .store-item {
             display: flex;
             align-items: center;
             gap: 8px;
             font-size: 14px;
+            padding: 6px 8px;
+            border-radius: 10px;
+            justify-content: space-between;
+        }
+        .store-item span {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            gap: 12px;
+        }
+        .store-name {
+            flex: 1;
+        }
+        .store-number {
+            font-weight: 700;
+            color: var(--muted);
+        }
+        .store-item.selected {
+            background: rgba(42, 111, 95, 0.12);
+            border: 1px solid rgba(42, 111, 95, 0.35);
+        }
+        body.theme-dark .store-item.selected {
+            background: rgba(91, 196, 167, 0.18);
+            border-color: rgba(91, 196, 167, 0.35);
         }
         .store-item.disabled {
             opacity: 0.45;
@@ -214,15 +242,6 @@
         }
         .small-input {
             max-width: 240px;
-        }
-        .download-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-top: 8px;
-        }
-        .download-row a {
-            text-decoration: none;
         }
         .section {
             margin-top: 18px;
@@ -371,13 +390,6 @@
             </div>
         {% endif %}
 
-        <div class="download-row fade-in delay-2">
-            <span class="help">Example CSV file:</span>
-            <a href="/static/Testtttttttt.csv" download>
-                <button type="button" class="secondary-button">Download example CSV</button>
-            </a>
-        </div>
-
         <form method="post" action="/generate">
             <div class="section fade-in delay-2 field-pop">
                 <div class="section-header"><span class="section-dot"></span>Header</div>
@@ -413,17 +425,15 @@
             <div class="section fade-in delay-3 field-pop">
                 <div class="section-header"><span class="section-dot"></span>Stores</div>
                 <label>CIP store(s)</label>
-                <div class="help">Pick one or more stores for the selected salesline.</div>
+                <div class="help">Pick one store for the selected salesline.</div>
                 <div class="store-actions">
-                    <button type="button" data-action="select-all-cc">Select all C&C stores</button>
-                    <button type="button" data-action="select-all-fsd">Select all FSD stores</button>
-                    <button type="button" data-action="clear-all">Clear all</button>
+                    <button type="button" data-action="clear-all">Clear</button>
                 </div>
                 <div class="stores-grid">
                     {% for store in stores %}
                     <label class="store-item" data-store-wrapper>
-                        <input type="checkbox" class="store-checkbox" data-store="{{ store.number }}" data-groups="{{ store.groups | join(',') }}" {% if form.get('cip_stores','').split('|') and store.number in form.get('cip_stores','').split('|') %}checked{% endif %}>
-                        <span>{{ store.name }} ({{ store.number }})</span>
+                        <input type="radio" name="cip_store_choice" class="store-radio" data-store="{{ store.number }}" data-groups="{{ store.groups | join(',') }}" {% if form.get('cip_stores','') == store.number %}checked{% endif %}>
+                        <span><span class="store-name">{{ store.name }}</span><span class="store-number">{{ store.number }}</span></span>
                     </label>
                     {% endfor %}
                 </div>
@@ -541,27 +551,26 @@
 </div>
 
 <script>
-    const checkboxes = Array.from(document.querySelectorAll('.store-checkbox'));
+    const radios = Array.from(document.querySelectorAll('.store-radio'));
     const output = document.getElementById('cip_stores');
     const saleslineSelect = document.getElementById('salesline');
 
     function updateOutput() {
-        const selected = checkboxes
-            .filter(cb => cb.checked)
-            .map(cb => cb.dataset.store);
-        output.value = selected.join('|');
+        const selected = radios.find(radio => radio.checked);
+        output.value = selected ? selected.dataset.store : '';
     }
 
     function updateStoreAvailability() {
         const salesline = saleslineSelect.value;
-        checkboxes.forEach(cb => {
-            const groups = cb.dataset.groups.split(',');
+        radios.forEach(radio => {
+            const groups = radio.dataset.groups.split(',');
             const isAllowed = salesline ? groups.includes(salesline.toLowerCase()) : true;
-            cb.disabled = !isAllowed;
-            const wrapper = cb.closest('[data-store-wrapper]');
+            radio.disabled = !isAllowed;
+            const wrapper = radio.closest('[data-store-wrapper]');
             if (!isAllowed) {
-                cb.checked = false;
+                radio.checked = false;
                 wrapper.classList.add('disabled');
+                wrapper.classList.remove('selected');
             } else {
                 wrapper.classList.remove('disabled');
             }
@@ -569,34 +578,32 @@
         updateOutput();
     }
 
-    checkboxes.forEach(cb => cb.addEventListener('change', updateOutput));
-
-    document.querySelector('[data-action="select-all-cc"]').addEventListener('click', () => {
-        checkboxes.forEach(cb => {
-            if (cb.dataset.groups.includes('cc') && !cb.disabled) {
-                cb.checked = true;
+    function syncSelectedStyles() {
+        radios.forEach(radio => {
+            const wrapper = radio.closest('[data-store-wrapper]');
+            if (radio.checked) {
+                wrapper.classList.add('selected');
+            } else {
+                wrapper.classList.remove('selected');
             }
         });
-        updateOutput();
-    });
+    }
 
-    document.querySelector('[data-action="select-all-fsd"]').addEventListener('click', () => {
-        checkboxes.forEach(cb => {
-            if (cb.dataset.groups.includes('fsd') && !cb.disabled) {
-                cb.checked = true;
-            }
-        });
+    radios.forEach(radio => radio.addEventListener('change', () => {
         updateOutput();
-    });
+        syncSelectedStyles();
+    }));
 
     document.querySelector('[data-action="clear-all"]').addEventListener('click', () => {
-        checkboxes.forEach(cb => cb.checked = false);
+        radios.forEach(radio => radio.checked = false);
         updateOutput();
+        syncSelectedStyles();
     });
 
     saleslineSelect.addEventListener('change', updateStoreAvailability);
 
     updateStoreAvailability();
+    syncSelectedStyles();
 
     const tableBody = document.querySelector('#article-table tbody');
     const addRowButton = document.getElementById('add-row');
