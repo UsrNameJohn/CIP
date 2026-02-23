@@ -28,20 +28,16 @@ import io
 # ===== App initialisatie =====
 app = FastAPI()
 
-# Locatie van HTML templates
 templates = Jinja2Templates(directory="app/templates")
 
-# Controleer of er een /static directory bestaat en publiceer die
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
-# ===== Vaste lijsten (voor dropdowns + validatie) =====
+# ===== Vaste lijsten =====
 SALES_LINES = ["FSD", "CC"]
-
 ARTICLE_IDENTIFIER_TYPES = ["SUBSYS", "MGB"]
-
 BOOLEAN_CHOICES = ["TRUE", "FALSE"]
 
 CIP_TYPES = [
@@ -68,7 +64,6 @@ CIP_REASON_TYPES = [
     "OTHER_REASON",
 ]
 
-# Wordt gebruikt om stores te tonen in de UI
 STORES = [
     {"name": "Depot", "number": "86", "groups": ["fsd"]},
     {"name": "Jumbo", "number": "84", "groups": ["fsd"]},
@@ -97,6 +92,7 @@ def _normalize_article_rows(article_numbers, cip_values) -> list[dict]:
     """
     Combineert de losse lijsten uit het formulier naar nette records.
     Lege regels worden genegeerd.
+    Verwijdert automatisch alle % tekens uit CIP values.
     """
     rows = []
 
@@ -104,12 +100,15 @@ def _normalize_article_rows(article_numbers, cip_values) -> list[dict]:
         article = (article_numbers[idx] or "").strip()
         value = (cip_values[idx] or "").strip()
 
+        # 🔹 Automatisch % verwijderen (Excel plak issues oplossen)
+        value = value.replace("%", "").strip()
+
         # sla volledig lege regels over
         if not article and not value:
             continue
 
         rows.append({
-            "row": idx + 1,  # handig voor foutmeldingen
+            "row": idx + 1,
             "article_number": article,
             "cip_value": value,
         })
@@ -118,10 +117,6 @@ def _normalize_article_rows(article_numbers, cip_values) -> list[dict]:
 
 
 def _valid_store_numbers_for_salesline(salesline: str) -> set[str]:
-    """
-    Geeft terug welke stores gekozen mogen worden
-    afhankelijk van de salesline.
-    """
     if salesline == "FSD":
         return {"52", "86", "84"}
 
@@ -135,33 +130,24 @@ def _valid_store_numbers_for_salesline(salesline: str) -> set[str]:
 
 
 def _validate_form(data: dict) -> list[str]:
-    """
-    Valideert alle invoer uit het formulier.
-    Geeft een lijst met foutmeldingen terug.
-    """
     errors = []
 
-    # ===== Home store =====
     customer_home_store = data.get("customer_home_store", "").strip()
     if customer_home_store not in HOME_STORES:
         errors.append("Customer home store must be one of the allowed store numbers.")
 
-    # ===== Customer number =====
     customer_number = data.get("customer_number", "").strip()
     if not customer_number.isdigit() or len(customer_number) > 6:
         errors.append("Customer number must be numeric and at most 6 digits.")
 
-    # ===== Salesline =====
     salesline = data.get("salesline", "").strip()
     if salesline not in SALES_LINES:
         errors.append("Salesline must be FSD or CC.")
 
-    # ===== Article identifier =====
     article_identifier_type = data.get("article_identifier_type", "").strip()
     if article_identifier_type not in ARTICLE_IDENTIFIER_TYPES:
         errors.append("Article identifier type must be SUBSYS or MGB.")
 
-    # ===== CIP stores =====
     cip_stores = data.get("cip_stores", "").strip()
     if not cip_stores:
         errors.append("Please choose CIP store(s).")
@@ -171,7 +157,6 @@ def _validate_form(data: dict) -> list[str]:
         if allowed and not selected.issubset(allowed):
             errors.append("Selected stores are not valid for the chosen salesline.")
 
-    # ===== TRUE / FALSE velden =====
     for key, label in [
         ("exclusive_cip", "Exclusive CIP"),
         ("all_variants", "All variants"),
@@ -181,19 +166,16 @@ def _validate_form(data: dict) -> list[str]:
         if value not in BOOLEAN_CHOICES:
             errors.append(f"{label} must be TRUE or FALSE.")
 
-    # Extra business rule voor CC
     if salesline == "CC":
         if data.get("all_variants", "").strip() != "FALSE":
             errors.append("All variants must be FALSE for CC.")
         if data.get("all_bundles", "").strip() != "FALSE":
             errors.append("All bundles must be FALSE for CC.")
 
-    # ===== CIP type =====
     cip_type = data.get("cip_type", "").strip()
     if cip_type not in CIP_TYPES:
         errors.append("CIP type is invalid.")
 
-    # ===== Datums =====
     from_date = data.get("from_date", "").strip()
     to_date = data.get("to_date", "").strip()
 
@@ -212,7 +194,6 @@ def _validate_form(data: dict) -> list[str]:
     if from_dt and to_dt and from_dt > to_dt:
         errors.append("From date cannot be after To date.")
 
-    # ===== Reason =====
     reason = data.get("cip_reason_type", "").strip()
     if reason not in CIP_REASON_TYPES:
         errors.append("Reason must be one of the allowed values.")
@@ -221,7 +202,6 @@ def _validate_form(data: dict) -> list[str]:
     if reason == "OTHER_REASON" and not reason_detail:
         errors.append("Reason detail is required when Reason is OTHER_REASON.")
 
-    # ===== Artikelregels =====
     article_rows = data.get("article_rows", [])
     if not article_rows:
         errors.append("Please add at least one article row.")
@@ -242,12 +222,6 @@ def _validate_form(data: dict) -> list[str]:
 
 
 def _render_form(request: Request, errors: list[str], form: dict, article_rows: list[dict]):
-    """
-    Render de HTML pagina met:
-    - fouten
-    - reeds ingevulde waarden
-    - dropdown opties
-    """
     return templates.TemplateResponse(
         "index.html",
         {
@@ -268,22 +242,14 @@ def _render_form(request: Request, errors: list[str], form: dict, article_rows: 
 
 
 def _build_filename(form: dict, line_count: int) -> str:
-    """
-    Bouwt de download bestandsnaam op.
-    """
     today = date.today().strftime("%Y-%m-%d")
     customer_number = form["customer_number"]
     home_store = form["customer_home_store"]
     return f"{home_store}-{customer_number}-{today}-{line_count}.csv"
 
 
-# ===== Routes =====
-
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    """
-    Startpagina → leeg formulier.
-    """
     return _render_form(request, [], {}, [])
 
 
@@ -306,19 +272,9 @@ def generate(
     article_number: list[str] = Form([]),
     cip_value: list[str] = Form([]),
 ):
-    """
-    Wordt aangeroepen bij submit.
-    Flow:
-    1. normaliseren artikelregels
-    2. valideren
-    3. bij fouten → terug naar formulier
-    4. bij succes → CSV genereren en downloaden
-    """
 
-    # Maak nette artikelstructuur
     article_rows = _normalize_article_rows(article_number, cip_value)
 
-    # Verzamel alle form data
     form = {
         "customer_home_store": customer_home_store,
         "customer_number": customer_number,
@@ -335,18 +291,13 @@ def generate(
         "cip_reason_detail": cip_reason_detail,
     }
 
-    # Validatie
     errors = _validate_form({**form, "article_rows": article_rows})
     if errors:
         return _render_form(request, errors, form, article_rows)
 
-    # CSV opbouwen
     csv_content = generate_csv(form, article_rows)
-
-    # Bestandsnaam bepalen
     filename = _build_filename(form, len(article_rows))
 
-    # Download teruggeven
     return StreamingResponse(
         io.StringIO(csv_content),
         media_type="text/csv",
