@@ -66,7 +66,7 @@ CIP_REASON_TYPES = [
 
 STORES = [
     {"name": "Depot", "number": "86", "groups": ["fsd"]},
-    {"name": "Jumbo", "number": "84", "groups": ["fsd"]},
+    {"name": "Depot II", "number": "84", "groups": ["fsd"]},
     {"name": "Amsterdam", "number": "1", "groups": ["cc"]},
     {"name": "Delft", "number": "2", "groups": ["cc"]},
     {"name": "Breda", "number": "3", "groups": ["cc"]},
