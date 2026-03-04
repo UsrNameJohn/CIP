@@ -75,7 +75,7 @@ STORES = [
     {"name": "Duiven", "number": "6", "groups": ["cc"]},
     {"name": "Hengelo", "number": "7", "groups": ["cc"]},
     {"name": "Vianen", "number": "8", "groups": ["cc"]},
-    {"name": "Groning oud", "number": "10", "groups": ["cc"]},
+    {"name": "Groning", "number": "10", "groups": ["cc"]},
     {"name": "Leeuwarden", "number": "52", "groups": ["cc", "fsd"]},
     {"name": "Nieuwegein", "number": "53", "groups": ["cc"]},
     {"name": "Beverwijk", "number": "54", "groups": ["cc"]},
